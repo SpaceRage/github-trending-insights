@@ -7,7 +7,6 @@ from models import Repo, Base
 Base.metadata.create_all(bind=engine)
 
 def clean_number(num_str):
-    """Convert string numbers like '7,364' or '12.5k' to integers"""
     num_str = num_str.strip().lower().replace(',', '')
     if 'k' in num_str:
         num_str = num_str.replace('k', '')
@@ -23,20 +22,22 @@ def scrape_github_trending():
         repos = []
 
         for repo_element in soup.find_all("article", class_="Box-row"):
-            name = repo_element.find("a", class_="Link")["href"]
+            name = repo_element.find("a", class_="Link")["href"].lstrip("/")
             description = repo_element.find("p", class_="col-9").text.strip()
-            url = "https://github.com" + name
+            url = "https://github.com/" + name
             stars = clean_number(repo_element.find_all("a", class_="Link--muted")[0].text.strip())
             forks = clean_number(repo_element.find_all("a", class_="Link--muted")[1].text.strip())
             try:
                 language = repo_element.find("span", itemprop="programmingLanguage").text.strip()
             except:
                 language = "Not Found"
+            print(name, description, stars, forks, url, language)
             repos.append({"name": name, "description": description, "stars": stars, "forks": forks, "url": url, "language": language})
 
         db = SessionLocal()
+        db.query(Repo).delete()
         for repo in repos:
-            new_repo = Repo(name=repo["name"], stars=repo["stars"], url=repo["url"], language=repo["language"])
+            new_repo = Repo(name=repo["name"], description=repo["description"], stars=repo["stars"], forks=repo["forks"], url=repo["url"], language=repo["language"])
             db.add(new_repo)
         db.commit()
         db.close()
